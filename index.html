@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>llama-server — Live Tokens/Second Graph</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ---- Run Results Table ---- */
+        .run-table {
+            width: 100%; border-collapse: collapse; margin-top: 4px; margin-bottom: 8px;
+            font-size: 12px; font-family: 'Cascadia Code', 'Fira Code', monospace;
+        }
+        .run-table thead th {
+            text-align: left; color: #8b949e; font-weight: 600;
+            padding: 2px 6px; border-bottom: 1px solid #30363d;
+        }
+        .run-table tbody tr {
+            border-bottom: 1px solid #21262d;
+        }
+        .run-table tbody tr:last-child { border-bottom: none; }
+        .run-table tbody td {
+            padding: 2px 6px; color: #c9d1d9;
+        }
+        .run-table .run-num { font-weight: 700; font-size: 13px; }
+        /* ---- Three-column layout ---- */
+        .panel-col { flex: 1; display: flex; flex-direction: column; }
+        .panel-col.stats { flex: 0.5; }
+        .panel-col.wide { flex: 2; }
+    </style>
+</head>
+<body>
+
+<h1><span id="pageTitle">Live Tokens/Second Graph</span> <span id="pageStatusIcon" style="font-size:18px;">⏳</span></h1>
+
+<!-- ===== CONTROLS ===== -->
+<div class="controls">
+    <input type="text" id="serverUrl" value="http://localhost:7070" placeholder="llama-server URL">
+    <textarea id="prompt" placeholder="Prompt text" style="width:100%; min-height:60px; resize:vertical;">Once upon a time, tell me a short story about a fox and a rabbit. Keep it under 200 words.</textarea>
+    <input type="number" id="maxTokens" value="262144" min="10" max="262144" step="10" title="Max tokens to generate">
+    <input type="number" id="updateInterval" value="100" min="10" max="500" step="10" title="Update graph every N tokens">
+    <button id="btnStart" type="button">▶ Start</button>
+    <button id="btnStop" class="stop" onclick="stopGeneration()" disabled type="button">■ Stop</button>
+    <button id="btnClear" class="clear" onclick="clearAll()" type="button">✕ Clear All</button>
+    <button id="btnHealth" onclick="checkServerHealth()" title="Check /health" type="button" style="display:none;">⚡ Health</button>
+    <button id="btnProps" onclick="loadProps()" title="Check /props" type="button" style="display:none;">📦 Props</button>
+    <button id="btnSlots" onclick="loadSlots()" title="Check /slots" type="button" style="display:none;">🔌 Slots</button>
+</div>
+
+<!-- Progress bar -->
+<div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+
+<!-- ===== ROW: Server Stats | Chart ===== -->
+<div class="stats-chart-row">
+    <div class="panel-col stats">
+        <div class="collapsible-panel" id="serverStatsPanel">
+            <div class="panel-header" onclick="togglePanel('serverStatsPanel')">
+                <span>📊 Server Stats</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <button class="panel-copy-btn" onclick="event.stopPropagation(); copyPanelContent('serverStatsBody')" title="Copy to clipboard" aria-label="Copy">&#128203;</button>
+                    <span class="panel-toggle" id="ssToggle">▼</span>
+                </div>
+            </div>
+            <div class="panel-body" id="serverStatsBody" style="display:block;">
+                <div class="ss-stats-left">
+                    <div class="ss-section-title">— Server —</div>
+                    <div>context size:   <span id="ssContextSize">—</span></div>
+                    <div class="ss-section-title">— Prefill —</div>
+                    <div>prompt tokens:  <span id="ssPromptN">—</span></div>
+                    <div>prompt time:    <span id="ssPromptMs">—</span> ms</div>
+                    <div>prompt/tok:     <span id="ssPromptPerTok">—</span> ms</div>
+                    <div>prompt speed:   <span id="ssPromptSpeed">—</span> tok/s</div>
+                    <div class="ss-section-title">— Generation —</div>
+                    <div>generated:      <span id="ssPredictedN">—</span></div>
+                    <div>gen time:       <span id="ssPredictedMs">—</span> ms</div>
+                    <div>gen/tok:        <span id="ssPredictedPerTok">—</span> ms</div>
+                    <div>gen speed:      <span id="ssPredictedSpeed">—</span> tok/s</div>
+                    <div>peak all:     <span id="ssPeakAll">—</span> tok/s</div>
+                    <div class="ss-section-title" id="ssDraftSection" style="display:none;">— Draft —</div>
+                    <div id="ssDraftLines" style="display:none;">
+                        <div>draft tokens:   <span id="ssDraftN">—</span></div>
+                        <div>accepted:       <span id="ssDraftAccepted">—</span></div>
+                    </div>
+                    <div id="ssCacheLine" style="display:none;">
+                        <div>cache size:     <span id="ssCacheN">—</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="panel-col chart-col">
+        <div class="chart-container">
+            <div class="chart-info">
+                <span style="color:#8b949e;">Points: <span id="chartInfo">0</span></span>
+            </div>
+            <canvas id="chart" height="320"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ===== RESULTS ===== -->
+<div class="results-panel-row">
+    <div class="collapsible-panel" id="resultsPanel">
+        <div class="panel-header" onclick="togglePanel('resultsPanel')">
+            <span>📋 Results</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <button class="panel-copy-btn" onclick="event.stopPropagation(); copyPanelContent('resultsBody')" title="Copy to clipboard" aria-label="Copy">&#128203;</button>
+                <span class="panel-toggle" id="resultsToggle">▼</span>
+            </div>
+        </div>
+        <div class="panel-body" id="resultsBody">
+            <div class="ss-section-title">— Run History —</div>
+            <table class="run-table" id="runTable">
+                <colgroup><col style="width:50px"><col style="width:200px"><col style="width:60px"><col style="width:60px"><col style="width:75px"><col style="width:80px"><col style="width:90px"><col style="width:55px"><col style="width:55px"><col style="width:60px"></colgroup>
+                <thead>
+                    <tr><th>Run</th><th>Model</th><th style="text-align:right">PrefillTk</th><th style="text-align:right">GeneratedTk</th><th>Time</th><th>Speed</th><th style="text-align:right">Ctx</th><th style="text-align:right">PreMs</th><th style="text-align:right">PreSp</th><th style="text-align:right">GenSp</th></tr>
+                </thead>
+                <tbody id="runTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== LOG ===== -->
+<div class="collapsible-panel" id="logPanel">
+    <div class="panel-header" onclick="togglePanel('logPanel')">
+        <span>📋 Log</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button class="panel-copy-btn" onclick="event.stopPropagation(); copyLog()" title="Copy log to clipboard" aria-label="Copy">&#128203;</button>
+            <span class="panel-toggle" id="logToggle">&#9660;</span>
+        </div>
+    </div>
+    <div class="panel-body" id="log" style="display:block;"></div>
+</div>
+
+<!-- ===== SERVER RESPONSE ===== -->
+<div class="collapsible-panel" id="serverResponsePanel">
+    <div class="panel-header" onclick="togglePanel('serverResponsePanel')">
+        <span>⚙ Server Response</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button class="panel-copy-btn" onclick="event.stopPropagation(); copyPanelContent('serverResponseContent')" title="Copy to clipboard" aria-label="Copy">&#128203;</button>
+            <span class="panel-toggle" id="srToggle">&#9660;</span>
+        </div>
+    </div>
+    <div class="panel-body sr-content" id="serverResponseContent" style="display:none;">Waiting for server response...</div>
+</div>
+
+<script>
+var PANEL_STATE_KEY = 'tgs.panelState';
+
+function togglePanel(id) {
+    var body = document.querySelector('#' + id + ' .panel-body');
+    var toggle = document.querySelector('#' + id + ' .panel-toggle');
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        toggle.textContent = '\u25B2';
+        savePanelState(id, true);
+        // Load data when panel is opened
+        if (id === 'propsPanel') {
+            loadProps();
+        }
+        if (id === 'slotsPanel') {
+            loadSlots();
+        }
+    } else {
+        body.style.display = 'none';
+        toggle.textContent = '\u25BC';
+        savePanelState(id, false);
+    }
+}
+
+function savePanelState(id, isOpen) {
+    try {
+        var state = {};
+        var raw = localStorage.getItem(PANEL_STATE_KEY);
+        if (raw) { state = JSON.parse(raw); }
+        state[id] = isOpen;
+        localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(state));
+    } catch(e) { /* ignore */ }
+}
+
+function restorePanelState() {
+    try {
+        var raw = localStorage.getItem(PANEL_STATE_KEY);
+        if (!raw) return;
+        var state = JSON.parse(raw);
+        var panelIds = ['serverStatsPanel','resultsPanel','logPanel','serverResponsePanel','sseStreamPanel','propsPanel','slotsPanel'];
+        for (var i = 0; i < panelIds.length; i++) {
+            var pid = panelIds[i];
+            var body = document.querySelector('#' + pid + ' .panel-body');
+            var toggle = document.querySelector('#' + pid + ' .panel-toggle');
+            if (!body || state[pid] === undefined) continue;
+            body.style.display = state[pid] ? 'block' : 'none';
+            toggle.textContent = state[pid] ? '\u25B2' : '\u25BC';
+        }
+        // Load data if panel was restored as open
+        if (state['propsPanel']) {
+            loadProps();
+        }
+        if (state['slotsPanel']) {
+            loadSlots();
+        }
+    } catch(e) { /* ignore */ }
+}
+</script>
+<!-- ===== PROPS ===== -->
+<div class="collapsible-panel" id="propsPanel">
+    <div class="panel-header" onclick="togglePanel('propsPanel')">
+        <span>📦 Server Props</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button class="panel-refresh-btn" onclick="event.stopPropagation(); loadProps();" title="Refresh" aria-label="Refresh" style="background:none;border:none;color:#8b949e;cursor:pointer;font-size:14px;padding:0;">↻</button>
+            <button class="panel-copy-btn" onclick="event.stopPropagation(); copyPanelContent('propsContent')" title="Copy to clipboard" aria-label="Copy">&#128203;</button>
+            <span class="panel-toggle" id="propsToggle">▼</span>
+        </div>
+    </div>
+    <div class="panel-body" id="propsBody" style="display:none;">
+        <div id="propsContent" style="padding:12px; font-family:'Cascadia Code','Fira Code',monospace; font-size:12px; line-height:1.6; color:#c9d1d9; overflow-y:auto; max-height:800px;">
+            <div style="color:#8b949e; font-style:italic;">Click "Props" button to load server properties.</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SLOTS ===== -->
+<div class="collapsible-panel" id="slotsPanel">
+    <div class="panel-header" onclick="togglePanel('slotsPanel')">
+        <span>🔌 Slots</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button class="panel-refresh-btn" onclick="event.stopPropagation(); loadSlots();" title="Refresh" aria-label="Refresh" style="background:none;border:none;color:#8b949e;cursor:pointer;font-size:14px;padding:0;">↻</button>
+            <button class="panel-copy-btn" onclick="event.stopPropagation(); copyPanelContent('slotsContent')" title="Copy to clipboard" aria-label="Copy">&#128203;</button>
+            <span class="panel-toggle" id="slotsToggle">▼</span>
+        </div>
+    </div>
+    <div class="panel-body" style="display:none;" id="slotsBody">
+        <div id="slotsContent" style="padding:12px; font-family:'Cascadia Code','Fira Code',monospace; font-size:12px; line-height:1.6; color:#c9d1d9; overflow-y:auto; max-height:800px;">
+            <div style="color:#8b949e; font-style:italic;">Click "Slots" button to load active slots.</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SSE STREAM LOG ===== -->
+<div class="collapsible-panel" id="sseStreamPanel">
+    <div class="panel-header" onclick="togglePanel('sseStreamPanel')">
+        <span>🔌 SSE Stream Log</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <button class="panel-copy-btn" onclick="event.stopPropagation(); copyPanelContent('sseStreamPanel')" title="Copy to clipboard" aria-label="Copy">&#128203;</button>
+            <span class="panel-toggle" id="sseToggle">▼</span>
+        </div>
+    </div>
+    <div class="panel-body">
+        <div class="sse-stream-controls" style="margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+            <label style="color:#8b949e; font-size:11px;">Limit:</label>
+            <input type="number" id="sseLimit" value="1000" min="10" max="10000" step="100" style="width:80px">
+            <span style="color:#8b949e; font-size:11px; margin-left:auto;">Rows: <span id="sseRowCount">0</span></span>
+        </div>
+        <div class="sse-table-container" style="overflow:auto; max-height:600px;">
+            <table id="sseStreamTable" style="width:100%; border-collapse:collapse; font-size:10px; font-family:'Cascadia Code',monospace;">
+                <thead>
+                    <tr style="background:#161b22; color:#8b949e;">
+                        <th style="padding:4px 6px; text-align:left; width:35px; border-bottom:1px solid #30363d;">#</th>
+                        <th style="padding:4px 6px; text-align:left; width:60px; border-bottom:1px solid #30363d;">cache_n</th>
+                        <th style="padding:4px 6px; text-align:left; width:50px; border-bottom:1px solid #30363d;">prompt_n</th>
+                        <th style="padding:4px 6px; text-align:left; width:60px; border-bottom:1px solid #30363d;">prompt_ms</th>
+                        <th style="padding:4px 6px; text-align:left; width:65px; border-bottom:1px solid #30363d;">prompt_per_token_ms</th>
+                        <th style="padding:4px 6px; text-align:left; width:60px; border-bottom:1px solid #30363d;">prompt_per_second</th>
+                        <th style="padding:4px 6px; text-align:left; width:50px; border-bottom:1px solid #30363d;">pred_n</th>
+                        <th style="padding:4px 6px; text-align:left; width:60px; border-bottom:1px solid #30363d;">pred_ms</th>
+                        <th style="padding:4px 6px; text-align:left; width:65px; border-bottom:1px solid #30363d;">pred_per_token_ms</th>
+                        <th style="padding:4px 6px; text-align:left; width:60px; border-bottom:1px solid #30363d;">pred_per_second</th>
+                        <th style="padding:4px 6px; text-align:left; width:50px; border-bottom:1px solid #30363d;">draft_n</th>
+                        <th style="padding:4px 6px; text-align:left; width:60px; border-bottom:1px solid #30363d;">draft_n_accepted</th>
+                        <th style="padding:4px 6px; text-align:left; width:50px; border-bottom:1px solid #30363d;">pp_total</th>
+                        <th style="padding:4px 6px; text-align:left; width:50px; border-bottom:1px solid #30363d;">pp_cache</th>
+                        <th style="padding:4px 6px; text-align:left; width:50px; border-bottom:1px solid #30363d;">pp_proc</th>
+                        <th style="padding:4px 6px; text-align:left; width:55px; border-bottom:1px solid #30363d;">pp_time_ms</th>
+                        <th style="padding:4px 6px; text-align:left; width:80px; border-bottom:1px solid #30363d;">delta</th>
+                    </tr>
+                </thead>
+                <tbody id="sseStreamBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="js/state.js"></script>
+<script src="js/runTable.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/speed.js"></script>
+<script src="js/clearAll.js"></script>
+<script src="js/props.js"></script>
+<script src="js/slots.js"></script>
+<script src="js/health.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

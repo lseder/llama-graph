@@ -1,0 +1,192 @@
+/* ================================================================
+   test-speed-graph — Styles
+   ================================================================ */
+
+/* ---- Reset ---- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ---- Body ---- */
+body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+h1 { font-size: 20px; color: #58a6ff; margin-bottom: 16px; }
+
+/* ---- Controls ---- */
+.controls {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    align-items: flex-start; margin-bottom: 12px;
+}
+input, textarea, select {
+    background: #161b22; border: 1px solid #30363d;
+    color: #c9d1d9; border-radius: 6px;
+    padding: 8px 12px; font-size: 14px;
+}
+input[type="text"] { width: 280px; }
+textarea { width: 100%; min-height: 60px; resize: vertical; }
+input[type="number"] { width: 80px; }
+select { width: 160px; }
+button {
+    background: #238636; color: #fff; border: none;
+    border-radius: 6px; padding: 8px 18px;
+    font-size: 14px; cursor: pointer; font-weight: 600;
+}
+button:hover { background: #2ea043; }
+button:disabled { background: #30363d; cursor: default; }
+button.stop { background: #da3634; }
+button.stop:hover { background: #f85149; }
+button.clear { background: #6e7681; }
+button.clear:hover { background: #8b949e; }
+
+/* ---- Progress Bar ---- */
+.progress-bar {
+    height: 4px; background: #21262d;
+    border-radius: 2px; margin-bottom: 14px; overflow: hidden;
+}
+.progress-bar .fill {
+    height: 100%; background: linear-gradient(90deg, #238636, #3fb950);
+    width: 0%; transition: width 0.15s ease;
+}
+
+#progressFill { display: none !important; }
+
+/* ---- Chart ---- */
+.chart-container {
+    background: #161b22; border: 1px solid #30363d;
+    border-radius: 10px; padding: 16px;
+    margin-bottom: 16px;
+}
+canvas { display: block; width: 100%; height: 320px; }
+.chart-info {
+    display: flex; gap: 10px; align-items: center;
+    margin-bottom: 8px; font-size: 13px; color: #8b949e;
+}
+.chart-info label { color: #c9d1d9; }
+
+/* ---- Collapsible Panel ---- */
+.collapsible-panel {
+    background: #161b22; border: 1px solid #30363d;
+    border-radius: 10px; overflow: hidden;
+    margin-bottom: 12px;
+}
+.panel-header {
+    background: #21262d; padding: 8px 14px;
+    font-size: 13px; font-weight: 600; color: #8b949e;
+    cursor: pointer; user-select: none;
+    display: flex; justify-content: space-between;
+    align-items: center; border-bottom: 1px solid #30363d;
+}
+.panel-header:hover { background: #262c36; }
+.panel-toggle { font-size: 11px; color: #484f58; }
+.panel-body::-webkit-scrollbar { width: 6px; }
+.panel-body::-webkit-scrollbar-track { background: #0d1117; }
+.panel-body::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+/* ---- Stats + Chart Row ---- */
+.stats-chart-row {
+    display: flex; gap: 12px; margin-bottom: 12px;
+}
+.chart-col {
+    flex: 1.5;
+}
+/* ---- Results Panel Row ---- */
+.results-panel-row {
+    margin-bottom: 12px;
+}
+
+/* ---- Server Stats ---- */
+#serverStatsBody {
+    padding: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px; line-height: 1.8; color: #c9d1d9;
+    overflow-y: auto; max-height: 500px;
+}
+#serverStatsBody div { padding: 1px 0; }
+#serverStatsBody span { color: #58a6ff; font-weight: 600; }
+
+/* ---- Results Panel ---- */
+#resultsBody {
+    padding: 12px;
+    overflow-y: auto; max-height: 500px;
+}
+
+/* ---- Run Table Grid ---- */
+.run-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.run-table th {
+    background: #21262d;
+    color: #8b949e;
+    font-weight: 600;
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 2px solid #30363d;
+    border-right: 1px solid #30363d;
+}
+.run-table th:last-child {
+    border-right: none;
+}
+.run-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #21262d;
+    border-right: 1px solid #21262d;
+}
+.run-table td:last-child {
+    border-right: none;
+}
+.run-table tbody tr:nth-child(odd) {
+    background: #161b22;
+}
+.run-table tbody tr:nth-child(even) {
+    background: #0d1117;
+}
+.run-table tbody tr:hover {
+    background: #1c2128;
+}
+
+.ss-section-title { color: #3fb950; font-weight: 600; margin-top: 8px; margin-bottom: 4px; }
+
+/* ---- Panel Copy Button ---- */
+.panel-copy-btn {
+    background: none;
+    border: none;
+    color: #8b949e;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+.panel-copy-btn:hover {
+    background: #30363d;
+    color: #c9d19d;
+}
+.panel-copy-btn:active {
+    background: #388bfd33;
+    color: #58a6ff;
+}
+/* ---- Log ---- */
+#log {
+    max-height: 260px; overflow-y: auto;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px; line-height: 1.6; padding: 12px;
+}
+.log-entry { display: flex; gap: 8px; padding: 2px 0; }
+.log-time  { color: #484f58; white-space: nowrap; }
+.log-msg   { color: #c9d1d9; }
+.log-msg span.speed { color: #3fb950; font-weight: 700; }
+.log-msg span.warn  { color: #d29922; }
+
+/* ---- Server Response ---- */
+.sr-content {
+    padding: 12px; font-size: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    line-height: 1.6; color: #c9d1d9;
+}
