@@ -1,4 +1,4 @@
-# test-speed-graph — Live Tokens/Second Graph for llama-server
+# llama-graph — Live Tokens/Second Graph for llama-server
 
 > A real-time visualization tool for monitoring token generation speed (tok/s) against [llama.cpp](https://github.com/ggerganov/llama.cpp) HTTP API (`llama-server`).
 
@@ -7,7 +7,7 @@
 
 ## Screenshots
 
-![test-speed-graph screenshot](tn_page_screenshot.jpg)
+![llama-graph screenshot](tn_page_screenshot.jpg)
 
 ## Features
 
